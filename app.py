@@ -8,7 +8,7 @@ import custom_template
 
 st.set_page_config(page_title="AI Exam Paper Formatter", layout="wide")
 st.title("📄 AI Exam Paper Formatter")
-st.caption("Upload a handwritten or unformatted exam paper → get a clean, downloadable Word document.")
+st.caption("Upload a photo, an unformatted .docx, or paste raw text → get a clean, downloadable Word document.")
 
 with st.sidebar:
     st.header("1. Template")
@@ -22,17 +22,32 @@ with st.sidebar:
             "Upload school template (.docx with {{ placeholders }})", type=["docx"]
         )
 
-st.header("2. Upload exam content")
-upload_type = st.radio("What are you uploading?", ["Handwritten photo(s)", "Typed but unformatted .docx"])
+st.header("2. Add exam content")
+upload_type = st.radio(
+    "How are you providing the exam?",
+    ["Handwritten photo(s)", "Typed but unformatted .docx", "Pasted plain text"],
+)
 
-uploaded_images, uploaded_docx = None, None
+uploaded_images, uploaded_docx, pasted_text = None, None, ""
 if upload_type == "Handwritten photo(s)":
     uploaded_images = st.file_uploader(
         "Upload photo(s) of the exam paper (in order)", type=["jpg", "jpeg", "png"],
         accept_multiple_files=True,
     )
-else:
+elif upload_type == "Typed but unformatted .docx":
     uploaded_docx = st.file_uploader("Upload the messy .docx file", type=["docx"])
+else:
+    pasted_text = st.text_area(
+        "Paste the exam content (any messy format — headings, question numbers, marks, everything)",
+        height=250,
+        placeholder=(
+            "e.g.\n\nPhysics Mid-Term — Class 9 — Total 50 marks — Time: 2 hrs\n"
+            "Attempt all questions.\n\n"
+            "Q1. Define velocity. (5)\n"
+            "Q2 state newtons first law [5 marks]\n"
+            "q3 explain difference between speed and velocity 10 marks"
+        ),
+    )
 
 st.header("3. Exam details")
 col1, col2, col3 = st.columns(3)
@@ -48,9 +63,9 @@ with col3:
 time_allowed = st.text_input("Time allowed (e.g. 2 Hours)")
 logo_file = st.file_uploader("School logo (optional)", type=["png", "jpg", "jpeg"])
 
-if st.button("🚀 Generate Formatted Paper", type="primary"):
-    if not uploaded_images and not uploaded_docx:
-        st.error("Please upload a photo or a docx file first.")
+if st.button("Generate Formatted Paper", type="primary"):
+    if not uploaded_images and not uploaded_docx and not pasted_text.strip():
+        st.error("Please upload a photo/docx file or paste the exam text first.")
         st.stop()
     if template_choice.startswith("Custom") and not custom_tpl_file:
         st.error("Please upload a school template docx, or pick a built-in template.")
@@ -61,11 +76,13 @@ if st.button("🚀 Generate Formatted Paper", type="primary"):
             if uploaded_images:
                 image_data = [(img.read(), img.type) for img in uploaded_images]
                 data = extractor.extract_from_images(image_data)
-            else:
+            elif uploaded_docx:
                 tmp_path = os.path.join(tempfile.gettempdir(), uploaded_docx.name)
                 with open(tmp_path, "wb") as f:
                     f.write(uploaded_docx.read())
                 data = extractor.extract_from_docx(tmp_path)
+            else:
+                data = extractor.extract_from_text(pasted_text)
         except Exception as e:
             st.error(f"AI extraction failed: {e}")
             st.stop()
