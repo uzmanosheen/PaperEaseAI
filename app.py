@@ -18,6 +18,12 @@ with st.sidebar:
     )
     custom_tpl_file = None
     if template_choice.startswith("Custom"):
+        st.caption(
+            "Upload your school's own exam header/letterhead as a .docx with "
+            "placeholders like {{ school_name }}, {{ logo }}, {{ subject }} — "
+            "we'll insert the extracted exam content directly below it. "
+            "If you don't upload one, we'll use our default header template."
+        )
         custom_tpl_file = st.file_uploader(
             "Upload school template (.docx with {{ placeholders }})", type=["docx"]
         )
@@ -61,6 +67,7 @@ with col3:
     session = st.text_input("Session (e.g. 2025-26)")
     total_marks = st.text_input("Total marks")
 time_allowed = st.text_input("Time allowed (e.g. 2 Hours)")
+date_value = st.text_input("Date (optional — leave blank if hand-filled)")
 logo_file = st.file_uploader("School logo (optional)", type=["png", "jpg", "jpeg"])
 
 if st.button("Generate Formatted Paper", type="primary"):
@@ -94,6 +101,7 @@ if st.button("Generate Formatted Paper", type="primary"):
     header_info = {
         "school_name": school_name, "subject": subject, "class_name": class_name,
         "term": term, "session": session, "total_marks": total_marks, "time": time_allowed,
+        "date": date_value,
     }
 
     logo_path = None

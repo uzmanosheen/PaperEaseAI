@@ -1,3 +1,5 @@
+import re
+
 from docx import Document
 from docx.shared import Pt, Cm, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -8,6 +10,39 @@ from docx.oxml import OxmlElement
 URDU_FONT = "Noto Nastaliq Urdu"   # free Google Font, works even if judges'
                                    # PC doesn't have Jameel Noori Nastaleeq
 ENGLISH_FONT = "Times New Roman"
+
+HEADER_LABEL_PATTERNS = [
+    r"school\s*name\s*:", r"subject\s*:", r"class\s*:", r"term\s*:",
+    r"session\s*:", r"total\s*marks\s*:", r"time\s*allowed\s*:", r"time\s*:",
+    r"roll\s*(no|number)\s*:", r"student'?s?\s*name\s*:", r"name\s*:", r"date\s*:",
+]
+
+
+def strip_header_lines(text):
+    """Remove any leftover masthead-style lines (e.g. 'Roll No: ___') from
+    extracted text, since that info is rendered separately in the header table."""
+    if not text:
+        return text
+    lines = text.split("\n")
+    kept = [
+        line for line in lines
+        if not any(re.search(p, line, re.IGNORECASE) for p in HEADER_LABEL_PATTERNS)
+    ]
+    return "\n".join(kept).strip()
+
+
+def sanitize_data(data):
+    data = dict(data)
+    data["exam_title"] = strip_header_lines(data.get("exam_title", ""))
+    data["instructions"] = [
+        line for line in (strip_header_lines(i) for i in data.get("instructions", []))
+        if line
+    ]
+    for sec in data.get("sections", []):
+        cleaned = strip_header_lines(sec.get("section_title", ""))
+        if cleaned:
+            sec["section_title"] = cleaned
+    return data
 
 
 def set_rtl(paragraph):
@@ -46,49 +81,67 @@ def shade(paragraph, color="D9D9D9"):
     pPr.append(shd)
 
 
+def _set_cell_text(cell, text, bold=False, align=None):
+    cell.text = ""
+    p = cell.paragraphs[0]
+    if align:
+        p.alignment = align
+    run = p.add_run(str(text))
+    run.bold = bold
+    return p
+
+
 def add_header_table(doc, header_info, logo_path=None):
-    """The top block: logo + school name, then subject/class/term/session,
-    then a name/marks/time row students fill in by hand."""
-    table = doc.add_table(rows=1, cols=2)
+    """Default masthead: logo | school name/term title, then a 4-column
+    Subject/Class/Name/Roll/Time/Marks/Date grid — matches the standard
+    school exam header layout."""
+    table = doc.add_table(rows=5, cols=4)
+    table.style = "Table Grid"
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
-    left_cell, right_cell = table.rows[0].cells
 
+    logo_cell = table.cell(0, 0)
     if logo_path:
-        p = left_cell.paragraphs[0]
+        p = logo_cell.paragraphs[0]
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         run = p.add_run()
-        run.add_picture(logo_path, width=Inches(1))
+        run.add_picture(logo_path, width=Inches(0.9))
 
-    p = right_cell.paragraphs[0]
-    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = p.add_run(header_info.get("school_name", ""))
+    title_cell = table.cell(0, 1)
+    title_cell.merge(table.cell(0, 3))
+    title_p = title_cell.paragraphs[0]
+    title_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = title_p.add_run(header_info.get("school_name", ""))
     run.bold = True
     run.font.size = Pt(16)
 
-    info_p = doc.add_paragraph()
-    info_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    fields = [
-        f"Subject: {header_info.get('subject','')}",
-        f"Class: {header_info.get('class_name','')}",
-        f"Term: {header_info.get('term','')}",
-        f"Session: {header_info.get('session','')}",
+    subtitle_parts = [p for p in [header_info.get("term", ""), header_info.get("session", "")] if p]
+    if subtitle_parts:
+        sub_p = title_cell.add_paragraph()
+        sub_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        r2 = sub_p.add_run(f"({' — '.join(subtitle_parts)})")
+        r2.bold = True
+        r2.font.size = Pt(12)
+
+    grid = [
+        ("Subject:", header_info.get("subject", ""), "Class:", header_info.get("class_name", "")),
+        ("Student's Name:", "", "Time Allowed:", header_info.get("time", "")),
+        ("Roll Number:", "", "Total Marks:", header_info.get("total_marks", "")),
+        ("Date:", header_info.get("date", ""), "Obtained Marks:", ""),
     ]
-    info_p.add_run("   |   ".join(fields))
+    for row_idx, (l1, v1, l2, v2) in enumerate(grid, start=1):
+        cells = table.rows[row_idx].cells
+        _set_cell_text(cells[0], l1, bold=True)
+        _set_cell_text(cells[1], v1)
+        _set_cell_text(cells[2], l2, bold=True)
+        _set_cell_text(cells[3], v2)
 
-    fill_table = doc.add_table(rows=2, cols=3)
-    fill_table.style = "Table Grid"
-    labels = ["Name:", "Marks:", "Time:"]
-    values = ["________________", header_info.get("total_marks", ""), header_info.get("time", "")]
-    for i, lbl in enumerate(labels):
-        fill_table.rows[0].cells[i].text = lbl
-    for i, val in enumerate(values):
-        fill_table.rows[1].cells[i].text = str(val)
-
-    doc.add_paragraph()  # spacer
+    doc.add_paragraph()
 
 
 def add_body(doc, data, template="template1"):
     """The exam title, instructions, sections and questions. Shared by both
     built-in templates AND the custom-template flow (see custom_template.py)."""
+    data = sanitize_data(data)
     is_urdu = data.get("language", "english").lower() == "urdu"
     font = URDU_FONT if is_urdu else ENGLISH_FONT
 

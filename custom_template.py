@@ -15,6 +15,7 @@ def build_custom_docx(school_template_path, header_info, logo_path, data, output
         "session": header_info.get("session", ""),
         "total_marks": header_info.get("total_marks", ""),
         "time": header_info.get("time", ""),
+        "date": header_info.get("date", ""),
         "exam_title": data.get("exam_title", ""),
     }
     if logo_path:
@@ -31,5 +32,3 @@ def build_custom_docx(school_template_path, header_info, logo_path, data, output
     doc.save(output_path)
 
     return output_path
-
-

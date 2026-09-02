@@ -58,6 +58,11 @@ Rules:
   "?") goes in "text", and EACH option (a, b, c, d...) goes as its own
   separate string in "sub_parts" — e.g. "a) 8", "b) 9", "c) 5" as three
   separate list items. Never merge options into the "text" field.
+- Do NOT include school name, subject, class, term, session, roll number,
+  student name, date, time allowed, or total marks anywhere in
+  "exam_title", "instructions", or "section_title" — even if they appear
+  on the original paper. These fields are collected separately by the
+  application and must not be duplicated in the extracted content.
 
 """
 
