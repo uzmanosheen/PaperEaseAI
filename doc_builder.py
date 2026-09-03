@@ -7,8 +7,7 @@ from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 
-URDU_FONT = "Noto Nastaliq Urdu"   # free Google Font, works even if judges'
-                                   # PC doesn't have Jameel Noori Nastaleeq
+URDU_FONT = "Noto Nastaliq Urdu"   
 ENGLISH_FONT = "Times New Roman"
 
 HEADER_LABEL_PATTERNS = [
@@ -16,6 +15,9 @@ HEADER_LABEL_PATTERNS = [
     r"session\s*:", r"total\s*marks\s*:", r"time\s*allowed\s*:", r"time\s*:",
     r"roll\s*(no|number)\s*:", r"student'?s?\s*name\s*:", r"name\s*:", r"date\s*:",
 ]
+
+# Matches strings like "a) oxygen", "B) 9", " c)  none "
+_MCQ_OPTION_RE = re.compile(r"^\s*([a-e])\)\s*(.*)$", re.IGNORECASE)
 
 
 def strip_header_lines(text):
@@ -43,6 +45,54 @@ def sanitize_data(data):
         if cleaned:
             sec["section_title"] = cleaned
     return data
+
+
+def _looks_like_mcq_options(sub_parts):
+    """Return True when every sub_part looks like an MCQ option (a) ... b) ...)."""
+    if not sub_parts or len(sub_parts) < 2:
+        return False
+    return all(_MCQ_OPTION_RE.match(sp) for sp in sub_parts)
+
+
+def _format_mcq_options(sub_parts, max_single_line_chars=55):
+    """Format MCQ options inline, wrapping to two options per line when too long.
+
+    - Short option sets are placed on a single line.
+    - Longer sets are split into two options per line.
+    - One tab is used between short options; two tabs are used after long options
+      to keep the layout visually balanced.
+    """
+    options = []
+    for sp in sub_parts:
+        m = _MCQ_OPTION_RE.match(sp)
+        letter = m.group(1).lower()
+        text = m.group(2).strip()
+        options.append((letter, text))
+
+    rendered = [f"{letter}) {text}" for letter, text in options]
+    # Rough character budget: if the rendered options fit comfortably on one
+    # line, keep them there.
+    total_len = sum(len(r) for r in rendered) + (len(rendered) - 1)
+
+    use_single_line = len(options) <= 2 or total_len <= max_single_line_chars
+
+    groups = [rendered] if use_single_line else [
+        rendered[i:i + 2] for i in range(0, len(rendered), 2)
+    ]
+
+    final_lines = []
+    for group in groups:
+        line_parts = []
+        for i, item in enumerate(group):
+            if i < len(group) - 1:
+                # Wider spacing after longer options.
+                sep = "\t\t" if len(item) > 15 else "\t"
+                line_parts.append(item + sep)
+            else:
+                line_parts.append(item)
+        final_lines.append("".join(line_parts))
+
+    return "\n".join(final_lines)
 
 
 def set_rtl(paragraph):
@@ -183,13 +233,28 @@ def add_body(doc, data, template="template1"):
             set_font(r, font, 12, urdu=is_urdu)
             if is_urdu:
                 set_rtl(q_p)
-            for sp in q.get("sub_parts", []):
-                sp_p = doc.add_paragraph()
-                sp_p.paragraph_format.left_indent = Cm(1)
-                r2 = sp_p.add_run(sp)
+            sub_parts = q.get("sub_parts", [])
+            if _looks_like_mcq_options(sub_parts):
+                mcq_text = _format_mcq_options(sub_parts)
+                opt_p = doc.add_paragraph()
+                opt_p.paragraph_format.left_indent = Cm(1)
+                r2 = opt_p.add_run(mcq_text)
                 set_font(r2, font, 11, urdu=is_urdu)
                 if is_urdu:
-                    set_rtl(sp_p)
+                    set_rtl(opt_p)
+                # Column tab stops so options line up neatly.
+                tabs = opt_p.paragraph_format.tab_stops
+                tabs.add_tab_stop(Cm(4.5))
+                tabs.add_tab_stop(Cm(9))
+                tabs.add_tab_stop(Cm(13.5))
+            else:
+                for sp in sub_parts:
+                    sp_p = doc.add_paragraph()
+                    sp_p.paragraph_format.left_indent = Cm(1)
+                    r2 = sp_p.add_run(sp)
+                    set_font(r2, font, 11, urdu=is_urdu)
+                    if is_urdu:
+                        set_rtl(sp_p)
 
 
 def build_docx(data, header_info, logo_path, template="template1", output_path="output.docx"):
