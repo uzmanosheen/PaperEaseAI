@@ -89,7 +89,10 @@ def extract_from_images(image_files):
     response = client.models.generate_content(
         model=config.MODEL_NAME,
         contents=parts,
-        config=types.GenerateContentConfig(response_mime_type="application/json"),
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json",
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+        ),
     )
     return _safe_json_parse(response.text)
 
@@ -104,6 +107,9 @@ def extract_from_text(raw_text: str):
     response = client.models.generate_content(
         model=config.MODEL_NAME,
         contents=[raw_text, EXTRACTION_PROMPT],
-        config=types.GenerateContentConfig(response_mime_type="application/json"),
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json",
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+        ),
     )
     return _safe_json_parse(response.text)
