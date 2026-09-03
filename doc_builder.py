@@ -217,7 +217,7 @@ def add_body(doc, data, template="template1"):
 
     for sec in data.get("sections", []):
         sec_p = doc.add_paragraph()
-        sec_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        sec_p.alignment = WD_ALIGN_PARAGRAPH.LEFT
         marks_txt = f"  ({sec.get('section_marks','')})" if sec.get("section_marks") else ""
         r = sec_p.add_run(f"{sec.get('section_title','')}{marks_txt}")
         set_font(r, font, 13, bold=True, urdu=is_urdu)

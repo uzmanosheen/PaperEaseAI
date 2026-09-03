@@ -46,6 +46,11 @@ Rules:
 - If a value (e.g. marks) is missing in the source, use an empty string "".
 - Group MCQs / short questions / long questions into separate "sections" if
   the original paper visually separates them; otherwise use one section.
+- Every "section_title" MUST begin with its question-statement number in the
+  form "Q No. 1:", "Q No. 2:", "Q No. 3:", ... numbered sequentially across
+  the whole paper — e.g. "Q No. 1: Fill in the blanks:", "Q No. 2: Choose the
+  correct answer:". If the source paper numbers them differently (e.g. "Q.1",
+  "Q2", "Question 3") or not at all, still use this "Q No. N:" numbering.
 - Do NOT invent questions that are not present in the source material.
 - Numbers in "number" should match the original numbering (e.g. "1", "Q2", "3a").
 - The "instructions" field is ONLY for genuine exam-taking instructions
