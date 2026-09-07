@@ -1,3 +1,7 @@
+# The "Custom" template flow: the school's own letterhead .docx doubles as a
+# Jinja2 template ({{ school_name }}, {{ logo }}, ...). docxtpl fills in the
+# header fields, then we reopen the file with python-docx and append the
+# extracted questions using the same add_body() the built-in templates use.
 from docxtpl import DocxTemplate, InlineImage
 from docx.shared import Inches
 from docx import Document
@@ -19,6 +23,8 @@ def build_custom_docx(school_template_path, header_info, logo_path, data, output
         "exam_title": data.get("exam_title", ""),
     }
     if logo_path:
+        # only set the key when a real image exists — InlineImage can't take
+        # None, and a missing key just leaves the {{ logo }} placeholder blank
         context["logo"] = InlineImage(tpl, logo_path, width=Inches(1))
 
     tpl.render(context)

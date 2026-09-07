@@ -1,3 +1,6 @@
+# Renders the final exam paper for the two built-in templates. python-docx
+# only wraps a slice of Word's XML, so several helpers below write raw OOXML
+# through lxml: table widths, cell shading, RTL runs, PAGE/NUMPAGES fields.
 import re
 
 from docx import Document
@@ -10,6 +13,9 @@ from docx.oxml import OxmlElement
 URDU_FONT = "Noto Nastaliq Urdu"   
 ENGLISH_FONT = "Times New Roman"
 
+# labels like "Subject: ..." that belong to the masthead. the header table
+# already renders all of these, so strip_header_lines drops them from the
+# extracted body text to avoid printing things twice
 HEADER_LABEL_PATTERNS = [
     r"school\s*name\s*:", r"subject\s*:", r"class\s*:", r"term\s*:",
     r"session\s*:", r"total\s*marks\s*:", r"time\s*allowed\s*:", r"time\s*:",
@@ -34,7 +40,7 @@ def strip_header_lines(text):
 
 
 def sanitize_data(data):
-    data = dict(data)
+    data = dict(data)  # shallow copy — section dicts stay shared, but data is only rendered once
     data["exam_title"] = strip_header_lines(data.get("exam_title", ""))
     data["instructions"] = [
         line for line in (strip_header_lines(i) for i in data.get("instructions", []))
@@ -94,6 +100,9 @@ def set_font(run, font_name, size=12, bold=False, urdu=False):
     run.font.size = Pt(size)
     run.font.bold = bold
     if urdu:
+        # run.font.name only sets the latin typeface. Urdu is a "complex
+        # script" in Word, so the font also has to go into w:cs or the text
+        # comes out in some fallback font
         rPr = run._element.get_or_add_rPr()
         rFonts = rPr.find(qn("w:rFonts"))
         if rFonts is None:
@@ -324,6 +333,7 @@ def add_body(doc, data, template="template1"):
             sub_parts = q.get("sub_parts", [])
             if _looks_like_mcq_options(sub_parts):
                 section = doc.sections[0]
+                # page geometry comes out in twips; 567 twips = 1 cm
                 content_width_cm = (
                     section.page_width.twips
                     - section.left_margin.twips
@@ -419,6 +429,7 @@ def _add_running_header(section, header_info):
 
     subject = header_info.get("subject", "")
     class_name = header_info.get("class_name", "")
+    # same twips -> cm conversion as in add_body (567 twips = 1 cm)
     content_width_cm = (
         section.page_width.twips
         - section.left_margin.twips
@@ -458,6 +469,7 @@ def _add_running_header(section, header_info):
 
 
 def build_docx(data, header_info, logo_path, template="template1", output_path="output.docx"):
+    """Assemble one full exam paper: running header, masthead, then the body."""
     doc = Document()
     section = doc.sections[0]
     section.left_margin = Cm(2)

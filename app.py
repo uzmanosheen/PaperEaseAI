@@ -1,3 +1,6 @@
+# PaperEaseAI front-end. Everything in this file is Streamlit UI plus the
+# glue behind the generate button; the real work lives in extractor.py
+# (Gemini call) and doc_builder.py / custom_template.py (docx rendering).
 import os
 import re
 import time
@@ -22,7 +25,7 @@ def _exam_filename(subject, class_name):
     return "-".join(["formatted"] + parts + ["exam"]) + ".docx"
 
 # ── Page Config ──────────────────────────────────────────────
-st.set_page_config(page_title="PaperEaseAI — Exam Paper Formatter", layout="wide")
+st.set_page_config(page_title="PaperEaseAI — Smart Exam Formatting Assistance", layout="wide")
 
 # ── Custom CSS (blue theme, minimalistic) ───────────────────
 st.markdown("""
@@ -147,6 +150,7 @@ div[data-testid="stExpander"] {
 """, unsafe_allow_html=True)
 
 # ── Session state defaults ──────────────────────────────────────
+# _started just remembers the user clicked past the landing page
 if "_started" not in st.session_state:
     st.session_state._started = False
 
@@ -225,6 +229,9 @@ if not st.session_state._started:
     st.stop()
 
 # ── Auto-scroll to workspace after CTA click ────────────────
+# Streamlit has no supported way to run JS, so this smuggles a small script
+# in through an st.iframe data: URL. The script reaches into the parent
+# document, waits for #ws-top to show up, then smooth-scrolls to it.
 st.iframe(
     "data:text/html," + """<script>
 (function(){
@@ -381,8 +388,10 @@ if generate_clicked:
         status_box.markdown(html, unsafe_allow_html=True)
 
     # ── Step 1: Extract content ─────────────────────────────
-    # The (unchanged) extraction call runs in a worker thread so the
-    # status line can keep cycling sub-messages while the AI works.
+    # The Gemini call can take 30s+ and Streamlit reruns this script on
+    # every widget interaction, so the extraction goes to a worker thread
+    # and reports back through _result. The loop below keeps refreshing
+    # the status line while that thread is still busy.
     _result = {}
 
     def _extract():
@@ -391,6 +400,8 @@ if generate_clicked:
                 image_data = [(img.read(), img.type) for img in uploaded_images]
                 _result["data"] = extractor.extract_from_images(image_data)
             elif uploaded_docx:
+                # the docx libraries want a path on disk, so park the
+                # uploaded bytes in the temp dir first
                 tmp_path = os.path.join(tempfile.gettempdir(), uploaded_docx.name)
                 with open(tmp_path, "wb") as f:
                     f.write(uploaded_docx.read())
