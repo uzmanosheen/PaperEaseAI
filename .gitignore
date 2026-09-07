@@ -3,3 +3,9 @@ venv/
 __pycache__/
 outputs/
 *.docx
+
+# one-off dev scripts and sample inputs (not part of the app)
+sample_*
+extractor_test_*.py
+testApi.py
+test_builder.py
