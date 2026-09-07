@@ -1,4 +1,5 @@
 import os
+import re
 import time
 import tempfile
 import threading
@@ -7,6 +8,18 @@ import streamlit as st
 import extractor
 import doc_builder
 import custom_template
+
+
+def _filename_part(value):
+    """Sanitize a form field into a lowercase, hyphen-joined filename fragment."""
+    cleaned = re.sub(r"[^\w\s-]", "", value.strip().lower())
+    return re.sub(r"[\s_-]+", "-", cleaned).strip("-")
+
+
+def _exam_filename(subject, class_name):
+    """Build the output name as formatted-subject-class-exam.docx."""
+    parts = [p for p in (_filename_part(subject), _filename_part(class_name)) if p]
+    return "-".join(["formatted"] + parts + ["exam"]) + ".docx"
 
 # ── Page Config ──────────────────────────────────────────────
 st.set_page_config(page_title="PaperEaseAI — Exam Paper Formatter", layout="wide")
@@ -426,7 +439,7 @@ if generate_clicked:
         with open(logo_path, "wb") as f:
             f.write(logo_file.read())
 
-    output_path = os.path.join(tempfile.gettempdir(), "formatted_exam.docx")
+    output_path = os.path.join(tempfile.gettempdir(), _exam_filename(subject, class_name))
 
     try:
         if template_choice.startswith("Custom"):
@@ -472,7 +485,7 @@ if generate_clicked:
             st.download_button(
                 "Download Formatted Docx",
                 f,
-                file_name="formatted_exam.docx",
+                file_name=os.path.basename(output_path),
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                 use_container_width=True,
             )
