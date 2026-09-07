@@ -56,7 +56,7 @@ Print-ready .docx
 Requires Python 3.9+.
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/uzmanosheen/PaperEaseAI.git
 cd PaperEaseAI
 python -m venv venv
 venv\Scripts\activate        # Windows  (macOS/Linux: source venv/bin/activate)
