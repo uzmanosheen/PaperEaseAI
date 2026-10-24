@@ -80,7 +80,7 @@ config.py            # API key & model configuration
 
 ## Future Roadmap
 
-- CBSE / ICSE / university-specific template packs
+- BISE / university-specific template packs
 - Batch processing of multiple papers at once
 - PDF export
 - AI-generated marking schemes
