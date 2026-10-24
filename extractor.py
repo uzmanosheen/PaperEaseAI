@@ -62,7 +62,9 @@ Rules:
   - For multiple-choice questions, the question stem (the part ending in ":" or
   "?") goes in "text", and EACH option (a, b, c, d...) goes as its own
   separate string in "sub_parts" — e.g. "a) 8", "b) 9", "c) 5" as three
-  separate list items. Never merge options into the "text" field.
+  separate list items. Never merge options into the "text" field. For Urdu
+  papers keep the original Urdu markers — e.g. "(الف) لاہور", "(ب) سیالکوٹ",
+  "(ج) کراچی" as separate list items.
 - Do NOT include school name, subject, class, term, session, roll number,
   student name, date, time allowed, or total marks anywhere in
   "exam_title", "instructions", or "section_title" — even if they appear
